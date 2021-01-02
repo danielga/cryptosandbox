@@ -45,9 +45,6 @@ workspace("cryptosandbox")
 	filter("platforms:x64")
 		architecture("x64")
 
-	filter("options:static-runtime")
-		staticruntime("On")
-
 	filter("system:windows")
 		defines({
 			"WINVER=0x0601",
@@ -134,7 +131,7 @@ workspace("cryptosandbox")
 		})
 		vpaths({["Source files"] = SOURCE_DIRECTORY .. "/**.cpp"})
 		files(SOURCE_DIRECTORY .. "/main.cpp")
-		links({"common", "cryptopp"})
+		links("signature")
 
 		filter("system:windows")
 			defines({
@@ -143,10 +140,18 @@ workspace("cryptosandbox")
 				"WIN32_LEAN_AND_MEAN"
 			})
 
-	project("common")
+		filter("configurations:Debug or Release")
+			defines("SIGNATURE_IMPORT")
+
+		filter("configurations:StaticDebug or StaticRelease")
+			defines("SIGNATURE_STATIC")
+			links("cryptopp")
+
+	project("signature")
 		uuid("8565F3C3-99EA-4685-BDDE-D8240AA57223")
 		includedirs({
 			INCLUDE_DIRECTORY,
+			INCLUDE_DIRECTORY .. "/signature",
 			SOURCE_DIRECTORY,
 			ROOT_DIRECTORY -- We want to be able to do #include <cryptopp/...>
 		})
@@ -157,6 +162,11 @@ workspace("cryptosandbox")
 				SOURCE_DIRECTORY .. "/**.hpp"
 			}
 		})
+		files({
+			SOURCE_DIRECTORY .. "/signature/memory.cpp",
+			SOURCE_DIRECTORY .. "/signature/verifier.cpp",
+			INCLUDE_DIRECTORY .. "/signature/verifier.hpp"
+		})
 
 		filter("system:windows")
 			defines({
@@ -166,9 +176,12 @@ workspace("cryptosandbox")
 			})
 
 		filter("configurations:Debug or Release")
-			defines("CRYPTOPP_IMPORTS")
+			defines({"CRYPTOPP_IMPORTS", "SIGNATURE_EXPORT"})
 			links("cryptopp")
 			disablewarnings({"4251", "4275"})
+
+		filter("configurations:StaticDebug or StaticRelease")
+			defines("SIGNATURE_STATIC")
 
 	project("cryptopp")
 		uuid("56A1D28D-90AF-4924-8781-0811439E03C2")
@@ -657,17 +670,20 @@ workspace("cryptosandbox")
 				CRYPTOPP_DIRECTORY .. "/zlib.h"
 			})
 
-			filter("system:windows")
-				files(CRYPTOPP_DIRECTORY .. "/rdrand.asm")
-
-			filter({"system:windows", "platforms:x64"})
-				files(CRYPTOPP_DIRECTORY .. "/x64dll.asm")
-
 			filter({"configurations:StaticDebug or StaticRelease", "system:windows", "platforms:x64"})
 				files(CRYPTOPP_DIRECTORY .. "/x64masm.asm")
 
 			filter({"files:" .. CRYPTOPP_DIRECTORY .. "/eccrypto.cpp or " .. CRYPTOPP_DIRECTORY .. "/eprecomp.cpp", "configurations:StaticDebug or StaticRelease"})
 				flags("ExcludeFromBuild")
+
+		filter("system:windows")
+			files(CRYPTOPP_DIRECTORY .. "/rdrand.asm")
+
+		filter({"system:windows", "platforms:x64"})
+			files(CRYPTOPP_DIRECTORY .. "/x64dll.asm")
+
+		filter("files:" .. CRYPTOPP_DIRECTORY .. "/fipstest.cpp")
+			flags("ExcludeFromBuild")
 
 		filter("files:" .. CRYPTOPP_DIRECTORY .. "/dll.cpp or " .. CRYPTOPP_DIRECTORY .. "/iterhash.cpp")
 			flags("NoPCH")
